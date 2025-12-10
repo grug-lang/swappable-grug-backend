@@ -34,6 +34,7 @@
                 "main.c",
                 "mod_api.c",
                 "grug/grug.c",
+                "super_trampoline.s",
                 "-o",
                 "game",
                 "-Wall",

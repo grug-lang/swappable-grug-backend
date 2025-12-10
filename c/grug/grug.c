@@ -6,10 +6,15 @@
 #include <dlfcn.h>
 
 /* mock AST loaded from file */
-static grug_ast_t loaded_ast = {
-    .mod_name = "animals/labrador",
-    .entity_name = "Dog",
-    .function_name = "on_spawn"
+static grug_ast_t loaded_asts[] = {
+    {
+        .mod_name = "animals/labrador",
+        .entity_name = "Dog",
+        .function_name = "on_spawn"
+    },
+    {.mod_name = "animals/labrador",
+        .entity_name = "Dog",
+        .function_name = "on_many_args"}
 };
 
 /* backend state */
@@ -17,7 +22,7 @@ static grug_backend_t *current_backend = NULL;
 
 /* default interpreter backend implementation (keeps demo tiny) */
 static void interpreter_execute(const grug_ast_t *ast, grug_value_t *args, size_t argc) {
-    printf("[backend: interpreter] Executing %s::%s\n",
+    printf("[interpreter backend] Executing %s::%s\n",
            ast->entity_name, ast->function_name);
     if (argc == 1 && args[0].tag == GRUG_TAG_I32) {
         int32_t age = args[0].as.i32;
@@ -25,6 +30,10 @@ static void interpreter_execute(const grug_ast_t *ast, grug_value_t *args, size_
             /* interpreter-level effect; in a real interpreter you'd call print_string AST node */
             print_string("Woof from interpreter backend!");
         }
+    }
+    if (argc == 9 && args[0].tag == GRUG_TAG_I32) {
+        printf("[interpreter backend] Dog got a bunch of args: %d, %d, %d, '%s', '%s', %d, %d, %d, '%s'\n",
+            args[0].as.i32, args[1].as.i32, args[2].as.i32, args[3].as.string, args[4].as.string, args[5].as.i32, args[6].as.i32, args[7].as.i32, args[8].as.string);
     }
 }
 
@@ -63,7 +72,7 @@ void grug_load_custom_backend(const char *so_path) {
             const char *name = custom_backend->symbols[i].name;
             void *fn = custom_backend->symbols[i].fn;
             /* delegate actual per-name binding to mod_api.c (generated) */
-            mod_api_set_function(name, fn);
+            mod_api_set_function(name, fn, NULL);
             printf("[bindings] Backend override: %s -> %p\n", name, fn);
         }
     }
@@ -82,13 +91,17 @@ void grug_init(void) {
 }
 
 void grug_load_mods(void) {
-    printf("[frontend] (mock) loaded mod %s for entity %s\n", loaded_ast.mod_name, loaded_ast.entity_name);
+    printf("[frontend] (mock) loaded mod %s for entity %s\n", loaded_asts[0].mod_name, loaded_asts[0].entity_name);
 }
 
 grug_ast_t *grug_get_ast_for(const char *entity, const char *fn) {
-    if (strcmp(entity, loaded_ast.entity_name) == 0 && strcmp(fn, loaded_ast.function_name) == 0) {
-        return &loaded_ast;
+    for(size_t i=0; i<sizeof(loaded_asts)/sizeof(grug_ast_t); ++i) {
+        grug_ast_t* loaded_ast = &(loaded_asts[i]);
+        if (strcmp(entity, loaded_ast->entity_name) == 0 && strcmp(fn, loaded_ast->function_name) == 0) {
+            return loaded_ast;
+        }
     }
+
     return NULL;
 }
 
